@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { withRole } from "@/lib/rbac";
+import { resolvePatientAccess } from "@/lib/authz";
 
 export async function GET(request: NextRequest) {
   const result = await withRole("patient", "therapist", "care_coordinator");
@@ -12,13 +13,12 @@ export async function GET(request: NextRequest) {
   const limit = parseInt(searchParams.get("limit") || "30");
   const patientId = searchParams.get("patientId");
 
-  const where: Record<string, unknown> = {};
+  // Object-level authz: never return unscoped data; therapists only their own
+  // patients. MoodCheckin.patientId is a User id.
+  const access = await resolvePatientAccess(user, patientId);
+  if ("error" in access) return access.error;
 
-  if (user.role === "patient") {
-    where.patientId = user.id;
-  } else if (patientId) {
-    where.patientId = patientId;
-  }
+  const where: Record<string, unknown> = { patientId: access.patientUserId };
 
   const [checkins, total] = await Promise.all([
     prisma.moodCheckin.findMany({

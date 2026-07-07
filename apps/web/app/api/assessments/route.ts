@@ -4,6 +4,7 @@ import { withRole } from "@/lib/rbac";
 import { logAudit, auditContext } from "@/lib/audit";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { detectCrisis, escalateCrisis } from "@/lib/crisis";
+import { resolvePatientAccess } from "@/lib/authz";
 
 export async function GET(request: NextRequest) {
   const result = await withRole("patient", "therapist", "care_coordinator");
@@ -16,24 +17,17 @@ export async function GET(request: NextRequest) {
   const page = parseInt(searchParams.get("page") || "1");
   const limit = parseInt(searchParams.get("limit") || "20");
 
-  let patientProfileId: string | undefined;
+  // Object-level authz: therapists only their own patients; non-patient roles
+  // must scope to an explicit patient (never an unscoped all-patients query).
+  const access = await resolvePatientAccess(user, patientUserId);
+  if ("error" in access) return access.error;
 
-  if (user.role === "patient") {
-    const profile = await prisma.patientProfile.findUnique({
-      where: { userId: user.id },
-    });
-    if (!profile) return NextResponse.json({ data: [], total: 0 });
-    patientProfileId = profile.id;
-  } else if (patientUserId) {
-    const profile = await prisma.patientProfile.findUnique({
-      where: { userId: patientUserId },
-    });
-    if (!profile) return NextResponse.json({ data: [], total: 0 });
-    patientProfileId = profile.id;
-  }
+  const profile = await prisma.patientProfile.findUnique({
+    where: { userId: access.patientUserId },
+  });
+  if (!profile) return NextResponse.json({ data: [], total: 0 });
 
-  const where: Record<string, unknown> = {};
-  if (patientProfileId) where.patientId = patientProfileId;
+  const where: Record<string, unknown> = { patientId: profile.id };
   if (type) where.type = type;
 
   const [assessments, total] = await Promise.all([
