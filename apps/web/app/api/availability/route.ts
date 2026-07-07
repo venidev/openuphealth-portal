@@ -45,7 +45,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { slots } = body;
 
-    if (!Array.isArray(slots) || slots.length === 0) {
+    // An empty array is valid: it clears the therapist's availability.
+    if (!Array.isArray(slots)) {
       return NextResponse.json({ error: "slots array is required" }, { status: 400 });
     }
 

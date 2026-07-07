@@ -158,10 +158,15 @@ model Appointment {
   status       String   @default("scheduled")
   notes        String?
   cancelReason String?
+  followUpOfId String?  // links a follow-up to its originating appointment
   createdAt    DateTime @default(now())
 
-  patient   User @relation("PatientAppointments", fields: [patientId], references: [id])
-  therapist User @relation("TherapistAppointments", fields: [therapistId], references: [id])
+  patient    User          @relation("PatientAppointments", fields: [patientId], references: [id])
+  therapist  User          @relation("TherapistAppointments", fields: [therapistId], references: [id])
+  followUpOf Appointment?  @relation("FollowUps", fields: [followUpOfId], references: [id])
+  followUps  Appointment[] @relation("FollowUps")
+
+  @@index([therapistId, startsAt])
 }
 
 model AvailabilitySlot {
