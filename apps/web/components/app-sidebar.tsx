@@ -36,25 +36,26 @@ export function AppSidebar() {
   return (
     <aside
       className={cn(
-        "flex flex-col h-full bg-card border-r border-border transition-all duration-200",
+        "flex flex-col h-full bg-neutral-950/80 backdrop-blur-md border-r border-white/10 transition-all duration-200 font-sans",
         collapsed ? "w-16" : "w-64"
       )}
     >
-      <div className="p-4 border-b border-border flex items-center justify-between">
+      <div className="p-4 border-b border-white/10 flex items-center justify-between">
         {!collapsed && (
           <div className="flex items-center gap-3">
             <Avatar className="h-9 w-9">
-              <AvatarFallback className="bg-primary text-primary-foreground text-sm">SJ</AvatarFallback>
+              <AvatarFallback className="bg-gradient-to-br from-indigo-500/40 to-emerald-500/40 text-white text-sm ring-1 ring-white/10">SJ</AvatarFallback>
             </Avatar>
             <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">Sarah Johnson</p>
-              <p className="text-xs text-muted-foreground truncate">Patient</p>
+              <p className="text-sm font-medium text-white truncate">Sarah Johnson</p>
+              <p className="text-xs text-slate-400 truncate">Patient</p>
             </div>
           </div>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="p-1.5 rounded-md hover:bg-muted text-muted-foreground"
+          aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
+          className="p-1.5 rounded-md hover:bg-white/5 text-slate-400 transition-colors"
         >
           {collapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
         </button>
@@ -68,10 +69,10 @@ export function AppSidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300",
                 isActive
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                  ? "bg-emerald-400/10 text-emerald-300 ring-1 ring-emerald-400/20"
+                  : "text-slate-400 hover:text-white hover:bg-white/5",
                 collapsed && "justify-center px-2"
               )}
               title={collapsed ? item.label : undefined}
@@ -83,14 +84,13 @@ export function AppSidebar() {
         })}
       </nav>
 
-      <div className="p-2 border-t border-border space-y-1">
+      <div className="p-2 border-t border-white/10 space-y-1">
         {bottomItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
             className={cn(
-              "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-destructive/10",
-              item.className,
+              "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-rose-300 transition-all duration-300 hover:bg-rose-400/10",
               collapsed && "justify-center px-2"
             )}
             title={collapsed ? item.label : undefined}
@@ -102,7 +102,7 @@ export function AppSidebar() {
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
           className={cn(
-            "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted w-full transition-colors",
+            "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 w-full transition-all duration-300",
             collapsed && "justify-center px-2"
           )}
         >

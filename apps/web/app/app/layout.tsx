@@ -13,11 +13,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <AuthProvider>
-      <div className="flex h-screen bg-background overflow-hidden">
+      <div className="dark flex h-screen overflow-hidden bg-neutral-950">
         <AppSidebar />
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
           <CrisisBanner />
-          <main className="flex-1 overflow-y-auto">
+          <main className="flex-1 overflow-y-auto bg-neutral-950">
             {children}
           </main>
         </div>

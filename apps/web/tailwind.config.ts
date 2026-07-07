@@ -51,6 +51,22 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
+        display: ["var(--font-display)", "var(--font-sans)", "system-ui", "sans-serif"],
+      },
+      keyframes: {
+        // Signature: a calm ~6s guided-breath cadence.
+        breathe: {
+          "0%, 100%": { transform: "scale(1)", opacity: "0.85" },
+          "50%": { transform: "scale(1.06)", opacity: "1" },
+        },
+        glowpulse: {
+          "0%, 100%": { boxShadow: "0 0 0 0 rgba(52,211,153,0.0)" },
+          "50%": { boxShadow: "0 0 20px 2px rgba(52,211,153,0.35)" },
+        },
+      },
+      animation: {
+        breathe: "breathe 6s ease-in-out infinite",
+        glowpulse: "glowpulse 6s ease-in-out infinite",
       },
     },
   },

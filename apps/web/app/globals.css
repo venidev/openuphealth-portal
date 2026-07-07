@@ -58,3 +58,18 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+}
+
+/* Respect users who prefer reduced motion: kill the ambient/breathing loops. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-breathe,
+  .animate-glowpulse {
+    animation: none !important;
+  }
+}
