@@ -21,6 +21,7 @@ const navItems = [
   { href: "/app/assessments", icon: ClipboardCheck, label: "Assessments" },
   { href: "/app/billing", icon: CreditCard, label: "Billing" },
   { href: "/app/insurance", icon: Shield, label: "Insurance" },
+  { href: "/app/privacy", icon: FileText, label: "Privacy & Data" },
   { href: "/app/settings", icon: Settings, label: "Settings" },
 ];
 
