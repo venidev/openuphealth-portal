@@ -6,13 +6,14 @@ import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, ClipboardList, Handshake, HeadphonesIcon,
-  Shield, FolderOpen, LogOut, Heart,
+  Shield, FolderOpen, LogOut, Heart, Share2,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const navItems = [
   { href: "/care", icon: LayoutDashboard, label: "Dashboard", exact: true },
   { href: "/care/intakes", icon: ClipboardList, label: "Intakes" },
+  { href: "/care/referrals", icon: Share2, label: "Referrals" },
   { href: "/care/matching", icon: Handshake, label: "Matching" },
   { href: "/care/support", icon: HeadphonesIcon, label: "Support" },
   { href: "/care/insurance", icon: Shield, label: "Insurance" },

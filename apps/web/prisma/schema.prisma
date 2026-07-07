@@ -380,7 +380,8 @@ model Referral {
   externalProviderId String?
   reason             String?
   urgency            String    @default("routine") // routine | urgent | crisis
-  idempotencyKey     String?
+  idempotencyKey     String?   @unique
+  createdById        String?   // user who initiated the referral
   consentAt          DateTime?
   expiresAt          DateTime?
   createdAt          DateTime  @default(now())
@@ -388,6 +389,8 @@ model Referral {
 
   @@unique([tenantId, idempotencyKey])
   @@index([status, urgency])
+  @@index([createdById])
+  @@index([patientId])
 }
 
 // Curated refer-out directory (PRODUCT_SCOPE R3).
