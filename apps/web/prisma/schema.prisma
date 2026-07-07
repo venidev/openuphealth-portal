@@ -39,6 +39,7 @@ model User {
   notificationPreference NotificationPreference?
   deviceRegistrations   DeviceRegistration[]
   coordinatedCases      CareCase[]           @relation("CoordinatorCases")
+  consents              Consent[]
 }
 
 model Account {
@@ -112,6 +113,7 @@ model TherapistProfile {
 
   user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   availabilitySlots AvailabilitySlot[]
+  licenses          TherapistLicense[]
 }
 
 model Organization {
@@ -304,17 +306,117 @@ model CareCase {
   coordinator User           @relation("CoordinatorCases", fields: [coordinatorId], references: [id])
 }
 
+// HIPAA audit controls (PRODUCT_SCOPE T8). Append-only: application code must
+// never update or delete rows. patientId is the SUBJECT of the access (for
+// accounting-of-disclosures queries); userId is the actor.
 model AuditLog {
   id           String   @id @default(cuid())
   userId       String?
+  userRole     String?
+  patientId    String?
   action       String
   resourceType String?
   resourceId   String?
-  metadata     String?  // JSON object
+  purpose      String?  // treatment | payment | operations | patient-request | security
+  metadata     String?  // JSON object (PHI-free)
   ipAddress    String?
+  userAgent    String?
+  success      Boolean  @default(true)
   createdAt    DateTime @default(now())
 
   user User? @relation(fields: [userId], references: [id])
+
+  @@index([patientId, createdAt])
+  @@index([userId, createdAt])
+}
+
+// Versioned consent capture (PRODUCT_SCOPE Privacy Rule). Never overwritten;
+// a revocation writes revokedAt, a new grant creates a new row.
+model Consent {
+  id              String    @id @default(cuid())
+  userId          String
+  type            String    // notice-of-privacy-practices | telehealth | communications | employer-program | treatment
+  documentVersion String
+  channel         String?   // email | sms | push | none
+  grantedAt       DateTime  @default(now())
+  revokedAt       DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+}
+
+// Accounting of disclosures (6-year retention). Records PHI disclosures outside
+// treatment/payment/operations, e.g. close-the-loop reports to a referrer.
+model DisclosureRecord {
+  id           String   @id @default(cuid())
+  patientId    String
+  disclosedTo  String
+  purpose      String
+  description  String
+  disclosedAt  DateTime @default(now())
+
+  @@index([patientId, disclosedAt])
+}
+
+// Inbound / internal / outbound referrals (PRODUCT_SCOPE R1–R3).
+// patientId is nullable until an inbound referral converts to a patient.
+model Referral {
+  id                 String    @id @default(cuid())
+  type               String    // inbound | internal_transfer | outbound
+  status             String    @default("received") // received|triaged|patient_contacted|converted|scheduled|completed|declined|unreachable|expired
+  tenantId           String?
+  patientId          String?
+  // Contact/context for pre-conversion inbound referrals (PHI).
+  patientFirstName   String?
+  patientLastName    String?
+  patientDob         DateTime?
+  patientPhone       String?
+  patientEmail       String?
+  // Referring / receiving party.
+  referringProvider  String?
+  referringNpi       String?
+  referringOrg       String?
+  externalProviderId String?
+  reason             String?
+  urgency            String    @default("routine") // routine | urgent | crisis
+  idempotencyKey     String?
+  consentAt          DateTime?
+  expiresAt          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([status, urgency])
+}
+
+// Curated refer-out directory (PRODUCT_SCOPE R3).
+model ExternalProvider {
+  id                String   @id @default(cuid())
+  name              String
+  npi               String?
+  specialty         String?
+  statesServed      String?  // JSON array
+  insuranceAccepted String?  // JSON array
+  contact           String?
+  createdAt         DateTime @default(now())
+}
+
+// Per-state licensure (PRODUCT_SCOPE licensure enforcement).
+model TherapistLicense {
+  id            String    @id @default(cuid())
+  therapistId   String
+  state         String
+  licenseNumber String
+  licenseType   String?
+  expiresAt     DateTime?
+  verifiedAt    DateTime?
+  verifiedBy    String?
+  createdAt     DateTime  @default(now())
+
+  therapist TherapistProfile @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+
+  @@index([therapistId, state])
 }
 
 model ContentResource {

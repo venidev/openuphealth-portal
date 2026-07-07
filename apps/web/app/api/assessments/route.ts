@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { withRole } from "@/lib/rbac";
-import { logAudit } from "@/lib/audit";
+import { logAudit, auditContext } from "@/lib/audit";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { detectCrisis, escalateCrisis } from "@/lib/crisis";
 
 export async function GET(request: NextRequest) {
   const result = await withRole("patient", "therapist", "care_coordinator");
@@ -48,10 +50,18 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = checkRateLimit(request, {
+    key: "assessments",
+    limit: 20,
+    windowMs: 60 * 1000,
+  });
+  if (limited) return limited;
+
   const result = await withRole("patient");
   if (result.error) return result.error;
 
   const { user } = result;
+  const ctx = auditContext(request);
 
   try {
     const body = await request.json();
@@ -84,11 +94,31 @@ export async function POST(request: NextRequest) {
 
     await logAudit({
       userId: user.id,
+      userRole: user.role,
+      patientId: profile.id,
       action: "assessment.completed",
       resourceType: "Assessment",
       resourceId: assessment.id,
+      purpose: "treatment",
       metadata: { type, score },
+      ...ctx,
     });
+
+    // Clinical-safety gate: escalate a positive PHQ-9 suicidality signal and
+    // tell the client to surface crisis resources in-flow.
+    const crisis = detectCrisis(type, responses);
+    if (crisis.isCrisis) {
+      await escalateCrisis({
+        patientProfileId: profile.id,
+        patientUserId: user.id,
+        assessmentId: assessment.id,
+        signal: crisis.signal!,
+      });
+      return NextResponse.json(
+        { data: assessment, crisis: { escalated: true, signal: crisis.signal } },
+        { status: 201 }
+      );
+    }
 
     return NextResponse.json({ data: assessment }, { status: 201 });
   } catch (error) {

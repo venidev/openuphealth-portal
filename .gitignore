@@ -10,3 +10,4 @@ apps/web/prisma/dev.db-journal
 apps/mobile/.expo
 apps/mobile/.expo-shared
 *.DS_Store
+.vercel

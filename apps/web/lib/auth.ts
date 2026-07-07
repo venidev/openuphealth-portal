@@ -24,6 +24,7 @@ declare module "next-auth" {
   interface JWT {
     id: string;
     role: string;
+    lastActivity?: number;
   }
 }
 
@@ -32,6 +33,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma) as any,
   session: {
     strategy: "jwt",
+    // HIPAA session hardening (PRODUCT_SCOPE T4): short absolute lifetime and
+    // sliding idle window instead of the 30-day NextAuth default. PHI-accessing
+    // roles must re-authenticate frequently.
+    maxAge: 12 * 60 * 60, // 12h absolute maximum
+    updateAge: 15 * 60, // refresh the token at most every 15 min of activity
+  },
+  jwt: {
+    maxAge: 12 * 60 * 60,
   },
   pages: {
     signIn: "/login",
@@ -77,10 +86,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, user }) {
+      const now = Math.floor(Date.now() / 1000);
+      const IDLE_TIMEOUT = 15 * 60; // 15 min of inactivity forces re-auth
+
       if (user) {
         token.id = user.id as string;
         token.role = user.role;
+        token.lastActivity = now;
+        return token;
       }
+
+      // Enforce idle timeout: null token signs the user out.
+      const lastActivity = (token.lastActivity as number | undefined) ?? now;
+      if (now - lastActivity > IDLE_TIMEOUT) {
+        return null;
+      }
+      token.lastActivity = now;
       return token;
     },
     async session({ session, token }) {
