@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { MessageSquare, ArrowLeft } from "lucide-react";
+import { MessageSquare, ArrowLeft, Share2 } from "lucide-react";
 
 interface ClientDetail {
   id: string;
@@ -61,11 +61,75 @@ function scoreColor(score: number, max: number) {
   return "bg-red-100 text-red-800";
 }
 
+interface ExternalProvider {
+  id: string;
+  name: string;
+  specialty: string | null;
+}
+
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [sessions, setSessions] = useState<SessionRecord[]>([]);
+
+  // Refer-out (R3) modal state.
+  const [referOpen, setReferOpen] = useState(false);
+  const [providers, setProviders] = useState<ExternalProvider[]>([]);
+  const [reason, setReason] = useState("");
+  const [urgency, setUrgency] = useState("routine");
+  const [providerId, setProviderId] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [referResult, setReferResult] = useState<string | null>(null);
+
+  function openRefer() {
+    setReferResult(null);
+    setReason("");
+    setUrgency("routine");
+    setProviderId("");
+    setReferOpen(true);
+    fetch("/api/external-providers")
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then((j) => setProviders(j.data ?? []))
+      .catch(() => setProviders([]));
+  }
+
+  async function submitRefer() {
+    if (!reason.trim()) {
+      setReferResult("Please provide a reason for the referral.");
+      return;
+    }
+    setSubmitting(true);
+    setReferResult(null);
+    try {
+      const res = await fetch("/api/referrals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "outbound",
+          patientId: id,
+          reason: reason.trim(),
+          urgency,
+          externalProviderId: providerId || undefined,
+          idempotencyKey:
+            typeof crypto !== "undefined" && crypto.randomUUID
+              ? crypto.randomUUID()
+              : `${id}-${Date.now()}`,
+        }),
+      });
+      if (res.ok) {
+        setReferResult("Referral submitted — it's now in the care team queue.");
+        setReason("");
+      } else {
+        const j = await res.json().catch(() => ({}));
+        setReferResult(j.error || "Failed to submit referral.");
+      }
+    } catch {
+      setReferResult("Failed to submit referral.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   useEffect(() => {
     const load = async () => {
@@ -115,9 +179,14 @@ export default function ClientDetailPage() {
             <p className="text-muted-foreground text-sm">{client.email} {client.phone && `· ${client.phone}`}</p>
           </div>
         </div>
-        <Link href="/provider/messages">
-          <Button className="gap-2"><MessageSquare className="size-4" /> Send Message</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2" onClick={openRefer}>
+            <Share2 className="size-4" /> Refer Out
+          </Button>
+          <Link href="/provider/messages">
+            <Button className="gap-2"><MessageSquare className="size-4" /> Send Message</Button>
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -195,6 +264,88 @@ export default function ClientDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Refer Out modal (R3 — outbound referral) */}
+      {referOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setReferOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-xl bg-card border border-border shadow-lg p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Refer {client.name} Out</h2>
+              <p className="text-sm text-muted-foreground">
+                Create an outbound referral (e.g. psychiatry, higher level of care). The care
+                team will manage it from the referral queue.
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground uppercase">
+                Reason
+              </label>
+              <textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                rows={3}
+                placeholder="e.g. Needs medication evaluation for persistent symptoms"
+                className="w-full rounded-md border border-border bg-background p-2 text-sm text-foreground"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">
+                  Urgency
+                </label>
+                <select
+                  value={urgency}
+                  onChange={(e) => setUrgency(e.target.value)}
+                  className="w-full rounded-md border border-border bg-background p-2 text-sm text-foreground"
+                >
+                  <option value="routine">Routine</option>
+                  <option value="urgent">Urgent</option>
+                  <option value="crisis">Crisis</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">
+                  Provider (optional)
+                </label>
+                <select
+                  value={providerId}
+                  onChange={(e) => setProviderId(e.target.value)}
+                  className="w-full rounded-md border border-border bg-background p-2 text-sm text-foreground"
+                >
+                  <option value="">Care team to assign</option>
+                  {providers.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                      {p.specialty ? ` — ${p.specialty}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {referResult && (
+              <p className="text-sm text-foreground bg-muted rounded-md p-2">{referResult}</p>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="ghost" onClick={() => setReferOpen(false)}>
+                Close
+              </Button>
+              <Button onClick={submitRefer} disabled={submitting}>
+                {submitting ? "Submitting…" : "Submit Referral"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
