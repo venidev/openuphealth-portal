@@ -185,6 +185,7 @@ model IntakeForm {
   careFormat            String?   // "individual" | "couples" | "family" | "group"
   paymentPreference     String?   // "insurance" | "self_pay" | "employer"
   additionalNotes       String?
+  triageJson            String?   // AI triage suggestion (advisory) — JSON
   completedAt           DateTime?
 
   patient PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
