@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test & Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Object-level authorization guards (T6) and the rest of the suite must
+      # pass before anything merges to main.
+      - name: Run tests
+        run: pnpm --filter web test
+
+      # Dummy values only — the build type-checks and compiles; it does not
+      # connect to a database or any third-party service.
+      - name: Build
+        run: pnpm --filter web build
+        env:
+          SKIP_ENV_VALIDATION: "1"
+          DATABASE_URL: "postgresql://user:pass@localhost:5432/db"
+          NEXTAUTH_SECRET: "ci-build-secret"
+          NEXTAUTH_URL: "http://localhost:3000"
+          STRIPE_SECRET_KEY: "sk_test_ci_placeholder"
+          STRIPE_WEBHOOK_SECRET: "whsec_ci_placeholder"

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { withRole } from "@/lib/rbac";
 import { resolvePatientAccess } from "@/lib/authz";
+import { logAudit, auditContext } from "@/lib/audit";
 
 export async function GET(request: NextRequest) {
   const result = await withRole("patient", "therapist", "care_coordinator");
@@ -29,6 +30,19 @@ export async function GET(request: NextRequest) {
     }),
     prisma.moodCheckin.count({ where }),
   ]);
+
+  // Audit clinician access to a patient's mood/journal PHI (T8).
+  if (user.id !== access.patientUserId) {
+    await logAudit({
+      userId: user.id,
+      userRole: user.role,
+      patientId: access.patientUserId,
+      action: "mood.read",
+      resourceType: "MoodCheckin",
+      purpose: "treatment",
+      ...auditContext(request),
+    });
+  }
 
   return NextResponse.json({ data: checkins, total, page, limit });
 }

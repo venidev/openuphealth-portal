@@ -40,6 +40,19 @@ export async function GET(request: NextRequest) {
     prisma.assessment.count({ where }),
   ]);
 
+  // Audit clinician access to a patient's assessment scores (T8).
+  if (user.id !== access.patientUserId) {
+    await logAudit({
+      userId: user.id,
+      userRole: user.role,
+      patientId: profile.id,
+      action: "assessment.read",
+      resourceType: "Assessment",
+      purpose: "treatment",
+      ...auditContext(request),
+    });
+  }
+
   return NextResponse.json({ data: assessments, total, page, limit });
 }
 
